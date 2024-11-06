@@ -1,0 +1,16 @@
+{
+  "import": [
+    "moonbitlang/minimbt/Color",
+    {
+      "path": "moonbitlang/minimbt",
+      "alias": "types"
+    },
+    {
+      "path": "moonbitlang/minimbt/NaiveLLVM",
+      "alias": "llvm"
+    },
+    "lijunchen/unstable_io/io",
+    "lijunchen/unstable_io/fs",
+    "lijunchen/unstable_io/env",
+  ]
+}

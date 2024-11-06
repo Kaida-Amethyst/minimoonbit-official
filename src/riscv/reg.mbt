@@ -1,9 +1,9 @@
-struct MemAccess[TBase, TOff] {
+pub struct MemAccess[TBase, TOff] {
   base : TBase
   offset : TOff
 } derive(Show)
 
-type Label String derive(Show, Eq, Hash)
+pub type Label String derive(Show, Eq, Hash)
 
 /// RISC-V register
 pub enum Reg {

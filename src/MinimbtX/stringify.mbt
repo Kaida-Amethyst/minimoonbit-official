@@ -1,7 +1,7 @@
 /// -------------------------------------------------
 /// # Stringify Type
 /// -------------------------------------------------
-fn stringify(self : Type) -> String {
+pub fn stringify(self : Type) -> String {
   if self.is_undefine() {
     @Color.bold_red(self.to_string())
   } else {

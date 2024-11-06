@@ -11,7 +11,7 @@ enum CompilePhase {
 }
 
 pub struct Context {
-  code : String
+  mut code : String
   mut phase : CompilePhase
   line_start_index : Map[Int, Int]
   line_end_index : Map[Int, Int]

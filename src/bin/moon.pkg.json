@@ -4,8 +4,10 @@
     "lijunchen/unstable_io/env",
     "Yoorkin/ArgParser",
     "lijunchen/unstable_io/fs",
-    "moonbitlang/minimbt/parser",
-    "moonbitlang/minimbt/lex",
+    {
+      "path": "moonbitlang/minimbt/MinimbtX",
+      "alias": "mibt"
+    },
     {
       "path": "moonbitlang/minimbt",
       "alias": "types"

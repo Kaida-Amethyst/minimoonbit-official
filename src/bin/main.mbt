@@ -35,6 +35,7 @@ fn Stages::next(self : Stages) -> Stages {
 }
 
 struct CompileStatus {
+  context: @mibt.Context
   mut curr_stage : Stages
   end_stage : Stages
   mut source_code : String?
@@ -50,9 +51,10 @@ struct CompileStatus {
 fn CompileStatus::initialize(
   start_stage : Stages,
   end_stage : Stages,
-  file : String
+  file : String,
 ) -> CompileStatus! {
   let v = CompileStatus::{
+    context: @mibt.Context::new(""),
     curr_stage: start_stage,
     end_stage,
     source_code: None,
@@ -65,7 +67,10 @@ fn CompileStatus::initialize(
     asm: None,
   }
   match start_stage {
-    Parse => v.source_code = Some(file)
+    Parse => {
+      v.source_code = Some(file)
+      v.context.code = file
+    }
     Typecheck => v.ast = Some(@types.Syntax::from_json!(@json.parse!(file)))
     Knf => v.typechecked = Some(@types.Syntax::from_json!(@json.parse!(file)))
     KnfOpt => {
@@ -88,12 +93,35 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
   }
   match self.curr_stage {
     Parse => {
-      let source_code = self.source_code.unwrap()
-      let parsed = @util.die("TODO: parse")
+      let parser = @mibt.Parser::new(self.context)
+      parser.run?().or_else(fn () {println("Parsing Error (MibitX Error)")})
+      let syntaxs = Array::new()
+      self.context.func_defs.iter().each(fn (pair) {
+        let (_, fd) = pair; syntaxs.push(fd.to_syntax())
+      })
+      match self.context.main_func {
+        Some(main_fn) => {syntaxs.push(main_fn.to_syntax())}
+        None => ()
+      }
+      let parsed = @mibt.union_syntax(syntaxs)
+      println(parsed)
       self.ast = Some(parsed)
     }
     Typecheck => {
-      let typechecked = @util.die("TODO: typecheck")
+      let type_analyzer = @mibt.TypeAnalysis::new(self.context)
+      type_analyzer.run?().or_else(fn () {
+        println("type check error (MibiX Error)");
+      })
+      let syntaxs = Array::new()
+      self.context.func_defs.iter().each(fn (pair) {
+        let (_, fd) = pair; syntaxs.push(fd.to_syntax())
+      })
+      match self.context.main_func {
+        Some(main_fn) => { syntaxs.push(main_fn.to_syntax()) }
+        None => ()
+      }
+      let typechecked = @mibt.union_syntax(syntaxs)
+      println(typechecked)
       self.typechecked = Some(typechecked)
     }
     Knf => {
@@ -189,6 +217,27 @@ fn main {
           },
         ),
         "End stage",
+      ),
+      (
+        "--stop-after-parse",
+        "",
+        @ArgParser.String(
+          fn(s) {
+            file = Some(s);
+          },
+        ),
+        "Stop After Parse",
+      ),
+      (
+        "--stop-after-typecheck",
+        "",
+        @ArgParser.String(
+          fn(s) {
+            println("stop after type check");
+            panic()
+          },
+        ),
+        "Stop After Type Check",
       ),
       (
         "--knf-interpreter",

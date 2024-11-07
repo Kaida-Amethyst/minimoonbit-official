@@ -15,6 +15,7 @@ enum RiscVPhysicalLocation {
 struct RiscVEmitter {
   module: Module
   code: Array[@riscv.RvAsm]
+  funcs: Array[@riscv.AssemblyFunction]
   free_sregs: Array[@riscv.Reg]
   debug: Bool
 }
@@ -23,6 +24,7 @@ pub fn RiscVEmitter::new(module: Module, debug: Bool) -> RiscVEmitter {
   RiscVEmitter::{
     module: module,
     code: Array::new(),
+    funcs: Array::new(),
     free_sregs: Array::new(),
     debug: debug
   }
@@ -161,8 +163,8 @@ pub fn run(self: RiscVEmitter) -> Unit {
   // self.transformFunctionToRiscV(self.module.functions[0])
 }
 
-pub fn get_code(self: RiscVEmitter) -> Array[@riscv.RvAsm] {
-  self.code
+pub fn get_code(self: RiscVEmitter) -> Array[@riscv.AssemblyFunction] {
+  self.funcs
 }
 
 fn collect_free_sreg(self: RiscVEmitter, func:Function) -> Array[@riscv.Reg] {
@@ -263,12 +265,19 @@ fn transformFunctionToRiscV(
   self: RiscVEmitter,
   func: Function,
 ) -> Unit {
+  let asm_func : @riscv.AssemblyFunction = {
+    name: func.name,
+    export: true,
+    body: Array::new(),
+  }
+  self.code.clear()
+
   self.clear_free_sregs()
   let free_sregs = self.collect_free_sreg(func)
   free_sregs.each(fn (r) {self.free_sregs.push(r)})
 
   self.push_comment_if_debug("Function: \{func.name}")
-  self.push_code(@riscv.RvAsm::Label(func.name))
+  // self.push_code(@riscv.RvAsm::Label(func.name))
   // 1. first alloc stack space, generate code:
   //   - addi sp, sp, -stack_size
   let stack_size = match func.stack_size {
@@ -344,6 +353,9 @@ fn transformFunctionToRiscV(
   self.push_code(@riscv.RvAsm::Addi(@riscv.Reg::Sp, @riscv.Reg::Sp, stack_size))
 
   self.push_code(@riscv.RvAsm::Ret)
+
+  self.code.each(fn (c) {asm_func.body.push(c)})
+  self.funcs.push(asm_func)
 }
 
 /// --------------------------------------------------------
@@ -693,12 +705,12 @@ fn transformFCondBrToRiscV(
   self.push_comment_if_debug(inst.to_string())
   match cond.predicate {
     // Predicate::FCMP_OEQ => {
-    //   self.push_code(@riscv.RvAsm::FeqD(lhs_sreg, rhs_sreg, if_label))
+    //   self.push_code(@riscv.RvAsm::FbeqD(lhs_sreg, rhs_sreg, if_label))
     //   self.push_code(@riscv.RvAsm::J(else_label))
     // }
     // Predicate::FCMP_OLE => {
     //   self.push_comment_if_debug(condition.to_string())
-    //   self.push_code(@riscv.RvAsm::FleD(lhs_sreg, rhs_sreg, if_label))
+    //   self.push_code(@riscv.RvAsm::FbleD(lhs_sreg, rhs_sreg, if_label))
     //   self.push_comment_if_debug(inst.to_string())
     //   self.push_code(@riscv.RvAsm::J(else_label))
     // }

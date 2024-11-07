@@ -587,6 +587,11 @@ pub fn to_syntax_type(self: Type) -> @types.Type {
     Double => @types.Type::Double
     Boolean => @types.Type::Bool
     TupleTy(tup) => tup.to_syntax_type()
+    FuncTy(fty) => {
+      let args = fty.param_types.iter().map(fn(arg) { arg.to_syntax_type() }).to_array()
+      let ret = fty.ret_type.to_syntax_type()
+      @types.Type::Fun(args, ret)
+    }
     _ => {
       println("Unsupported type convert to syntax type")
       panic()
@@ -600,4 +605,201 @@ pub fn to_syntax_type(self: TupleTy) -> @types.Type {
     types.push(ty.to_syntax_type())
   }
   return @types.Type::Tuple(types)
+}
+
+/// ----------------------------------------------------
+/// MibitX.knf to Syntax.knf
+/// ----------------------------------------------------
+fn to_syntax_name(self: Name) -> @types.Name {
+  let name = match self.mark {
+    "" => None
+    _ => Some(self.mark)
+  }
+  let slot = match self.slot {
+    None => 0
+    Some(i) => i
+  }
+  @types.Name::{ name, slot }
+}
+
+pub fn knf_conversion(knf: Knf) -> @knf.Knf {
+  let type_recorder : Map[@types.Name, @types.Type] = Map::new()
+  fn to_syntax_knf(knf: Knf) -> @knf.Knf {
+    match knf {
+      Unit => Unit
+      Int(i) => Int(i)
+      Double(d) => Double(d)
+      Var(name) => Var(to_syntax_name(name))
+      Neg(operand) => {
+        let operand = to_syntax_name(operand)
+        let ty = type_recorder.get(operand).unwrap()
+        match ty {
+          @types.Type::Int => Neg(operand)
+          @types.Type::Double => FNeg(operand)
+          _ => {
+            println("Unsupported type \{ty} for Neg")
+            panic()
+          }
+        }
+      }
+      Add(lhs, rhs) => {
+        let lhs = to_syntax_name(lhs)
+        let rhs = to_syntax_name(rhs)
+        let ty = type_recorder.get(lhs).unwrap()
+        match ty {
+          @types.Type::Int => Add(lhs, rhs)
+          @types.Type::Double => FAdd(lhs, rhs)
+          _ => {
+            println("Unsupported type \{ty} for Add")
+            panic()
+          }
+        }
+      }
+      Sub(lhs, rhs) => {
+        let lhs = to_syntax_name(lhs)
+        let rhs = to_syntax_name(rhs)
+        let ty = type_recorder.get(lhs).unwrap()
+        match ty {
+          @types.Type::Int => Sub(lhs, rhs)
+          @types.Type::Double => FSub(lhs, rhs)
+          _ => {
+            println("Unsupported type \{ty} for Sub")
+            panic()
+          }
+        }
+      }
+      Mul(lhs, rhs) => {
+        let lhs = to_syntax_name(lhs)
+        let rhs = to_syntax_name(rhs)
+        let ty = type_recorder.get(lhs).unwrap()
+        match ty {
+          @types.Type::Int => Mul(lhs, rhs)
+          @types.Type::Double => FMul(lhs, rhs)
+          _ => {
+            println("Unsupported type \{ty} for Mul")
+            panic()
+          }
+        }
+      }
+      Div(lhs, rhs) => {
+        let lhs = to_syntax_name(lhs)
+        let rhs = to_syntax_name(rhs)
+        let ty = type_recorder.get(lhs).unwrap()
+        match ty {
+          @types.Type::Int => Div(lhs, rhs)
+          @types.Type::Double => FDiv(lhs, rhs)
+          _ => {
+            println("Unsupported type \{ty} for Div")
+            panic()
+          }
+        }
+      }
+      Beq(lhs, rhs, then, elec) => {
+        let lhs = to_syntax_name(lhs)
+        let rhs = to_syntax_name(rhs)
+        let then = to_syntax_knf(then)
+        let elec = to_syntax_knf(elec)
+        IfEq(lhs, rhs, then, elec)
+      }
+      Bne(lhs, rhs, then, elec) => {
+        let lhs = to_syntax_name(lhs)
+        let rhs = to_syntax_name(rhs)
+        let then = to_syntax_knf(then)
+        let elec = to_syntax_knf(elec)
+        IfEq(lhs, rhs, elec, then)
+      }
+      Ble(lhs, rhs, then, elec) => {
+        let lhs = to_syntax_name(lhs)
+        let rhs = to_syntax_name(rhs)
+        let then = to_syntax_knf(then)
+        let elec = to_syntax_knf(elec)
+        IfLe(lhs, rhs, then, elec)
+      }
+      Bge(lhs, rhs, then, elec) => {
+        let lhs = to_syntax_name(lhs)
+        let rhs = to_syntax_name(rhs)
+        let then = to_syntax_knf(then)
+        let elec = to_syntax_knf(elec)
+        IfLe(rhs, lhs, then, elec)
+      }
+      Bgt(lhs, rhs, then, elec) => {
+        let lhs = to_syntax_name(lhs)
+        let rhs = to_syntax_name(rhs)
+        let then = to_syntax_knf(then)
+        let elec = to_syntax_knf(elec)
+        IfLe(lhs, rhs, elec, then)
+      }
+      Blt(lhs, rhs, then, elec) => {
+        let lhs = to_syntax_name(lhs)
+        let rhs = to_syntax_name(rhs)
+        let then = to_syntax_knf(then)
+        let elec = to_syntax_knf(elec)
+        IfLe(rhs, lhs, elec, then)
+      }
+      Let((name, ty), body, next) => {
+        let name = to_syntax_name(name)
+        let ty = ty.to_syntax_type()
+        type_recorder.set(name, ty)
+        let body = to_syntax_knf(body)
+        let next = to_syntax_knf(next)
+        Let((name, ty), body, next)
+      }
+      Tuple(names) => {
+        let names = names.map(fn(name) { to_syntax_name(name) })
+        Tuple(names)
+      }
+      LetTuple(items, name, body) => {
+        let items = items.map(fn(pair) {
+          let (name, ty) = pair
+          let name = to_syntax_name(name)
+          let ty = ty.to_syntax_type()
+          type_recorder.set(name, ty)
+          (name, ty)
+        })
+        let name = to_syntax_name(name)
+        let body = to_syntax_knf(body)
+        LetTuple(items, name, body)
+      }
+      Apply(name, args) => {
+        let name = to_syntax_name(name)
+        let args = args.map(fn(arg) { to_syntax_name(arg) })
+        Apply(name, args)
+      }
+      ExternApply(name, args) => {
+        let name = name.to_string()
+        let args = args.map(fn(arg) { to_syntax_name(arg) })
+        ExternalFunctionApplication(name, args)
+      }
+      Get(name, idx) => {
+        let name = to_syntax_name(name)
+        let idx = to_syntax_name(idx)
+        Get(name, idx)
+      }
+      Put(name, idx, value) => {
+        let name = to_syntax_name(name)
+        let idx = to_syntax_name(idx)
+        let value = to_syntax_name(value)
+        Put(name, idx, value)
+      }
+      LetRec(knf_func_def, body, next) => {
+        let func_name = knf_func_def.name.to_syntax_name()
+        let ty = knf_func_def.func_type.to_syntax_type()
+        let args = knf_func_def.params.map(fn(pair) {
+          let (name, ty) = pair
+          let name = to_syntax_name(name)
+          let ty = ty.to_syntax_type()
+          type_recorder.set(name, ty)
+          (name, ty)
+        })
+        let body = to_syntax_knf(body)
+        let syntax_func_def = @knf.FuncDef::{ name: func_name, ty, args, body }
+        LetRec(syntax_func_def, to_syntax_knf(next))
+      }
+      _ => {
+        println("Unsupported knf conversion: \{knf.stringify(0)}")
+        panic()
+      }
+    }
+  }
+  to_syntax_knf(knf)
 }

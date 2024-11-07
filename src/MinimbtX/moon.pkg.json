@@ -9,6 +9,8 @@
       "path": "moonbitlang/minimbt/NaiveLLVM",
       "alias": "llvm"
     },
+    "moonbitlang/minimbt/knf",
+    "moonbitlang/minimbt/closure",
     "lijunchen/unstable_io/io",
     "lijunchen/unstable_io/fs",
     "lijunchen/unstable_io/env",

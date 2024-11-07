@@ -121,16 +121,20 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
         None => ()
       }
       let typechecked = @mibt.union_syntax(syntaxs)
+      println("")
       println(typechecked)
       self.typechecked = Some(typechecked)
     }
     Knf => {
-      let knf = self.knf_env.to_knf(self.typechecked.unwrap())
+      let knf_context = @mibt.KnfContext::new(self.context)
+      let mibt_knf = knf_context.run?().unwrap()
+      let knf = @mibt.knf_conversion(mibt_knf)
+      println("")
+      println(knf)
       self.knf = Some(knf)
     }
     KnfOpt => {
       let knf = self.knf.unwrap()
-      // TODO: optimize
       self.opt_knf = Some(knf)
     }
     Closure => {

@@ -312,6 +312,7 @@ fn to_llvm_type(self: LowType) -> @llvm.Type {
     Float => @llvm.Type::FloatTy
     Boolean => @llvm.Type::BoolTy
     Ptr => @llvm.Type::getPointerTy()
+    Array(ty) => @llvm.Type::getPointerTy(ty=ty.to_llvm_type())
     Tuple(arr) => {
       let tupTy = @llvm.Type::getTupleTy(arr.map(fn (ty) {ty.to_llvm_type()}))
       @llvm.Type::getPointerTy(ty=tupTy)

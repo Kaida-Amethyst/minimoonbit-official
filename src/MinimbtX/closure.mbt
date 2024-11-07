@@ -530,7 +530,7 @@ pub fn to_lowtype(self: Type, ~closurefy: Bool = false) -> LowType {
     Type::Double => LowType::Double
     Type::Boolean => LowType::Boolean
     Type::TupleTy(tup) => tuple_type_to_lowtype(tup, closurefy)
-    Type::CompTy(_) => LowType::Ptr
+    Type::CompTy(comp) => comp_type_to_lowtype(comp, closurefy)
     Type::FuncTy(fty) => func_type_to_lowtype(fty, closurefy)
     _ => {
       println("Type \{self} cannot be converted to LowType")
@@ -552,17 +552,17 @@ fn func_type_to_lowtype(ty : FuncTy, closurefy: Bool) -> LowType {
   }
 }
 
-// fn comp_type_to_lowtype(ty: CompTy, closurefy: Bool) -> LowType {
-//   let subs = ty.subs.types
-//   let ptr_to_ty = match subs.length() {
-//     1 => subs[0].to_lowtype(~closurefy)
-//     _ => {
-//       let tys = subs.map(fn(t) { t.to_lowtype(~closurefy) })
-//       LowType::Tuple(tys)
-//     }
-//   }
-//   LowType::Ptr
-// }
+fn comp_type_to_lowtype(ty: CompTy, closurefy: Bool) -> LowType {
+  let subs = ty.subs.types
+  let ptr_to_ty = match subs.length() {
+    1 => subs[0].to_lowtype(~closurefy)
+    _ => {
+      let tys = subs.map(fn(t) { t.to_lowtype(~closurefy) })
+      LowType::Tuple(tys)
+    }
+  }
+  LowType::Array(ptr_to_ty)
+}
 
 /// -----------------------------------------------------------
 /// ## Closure IR

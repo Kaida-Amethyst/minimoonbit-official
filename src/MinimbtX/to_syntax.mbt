@@ -785,9 +785,24 @@ pub fn knf_conversion(knf: Knf) -> @knf.Knf {
         LetTuple(items, name, body)
       }
       Apply(name, args) => {
-        let name = to_syntax_name(name)
+        let fname = name.to_string()
+        let callee = if fname.starts_with("__builtin_array_make") {
+          let ty = type_recorder.get(args[1].to_syntax_name())
+          let callee = match ty {
+            Some(@types.Type::Int) => "minimbt_" + "create_int_array"
+            Some(@types.Type::Double) => "minimbt_" + "create_float_array"
+            Some(_) => "minimbt_" + "create_ptr_array"
+            None => {
+              println("knf 2 knf Apply array make error")
+              panic()
+            }
+          }
+          @types.Name::{ name: Some(callee), slot: 0 }
+        } else {
+          to_syntax_name(name)
+        }
         let args = args.map(fn(arg) { to_syntax_name(arg) })
-        Apply(name, args)
+        Apply(callee, args)
       }
       ExternApply(name, args) => {
         let name = "minimbt_" + name.to_string()
@@ -815,6 +830,7 @@ pub fn knf_conversion(knf: Knf) -> @knf.Knf {
           type_recorder.set(name, ty)
           (name, ty)
         })
+        type_recorder.set(func_name, ty)
         let body = to_syntax_knf(body)
         let syntax_func_def = @knf.FuncDef::{ name: func_name, ty, args, body }
         LetRec(syntax_func_def, to_syntax_knf(next))
@@ -1020,6 +1036,19 @@ fn to_syntax_closure(
     }
     CallDirect(name, args) => {
       let label = name.to_string()
+      let label = if label.starts_with("__builtin_array_make") {
+        match type_recorder.get(args[1].to_syntax_name()) {
+          Some(@closure.LowType::Int) => "minimbt_" + "create_int_array"
+          Some(@closure.LowType::Double) => "minimbt_" + "create_float_array"
+          Some(_) => "minimbt_" + "create_ptr_array"
+          None => {
+            println("closure 2 closure Call array make error")
+            panic()
+          }
+        }
+      } else {
+        label
+      }
       let args = args.map(fn(arg) { to_syntax_name(arg) })
       CallDirect(label, args)
     }

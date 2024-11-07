@@ -469,6 +469,7 @@ pub enum LowType {
   Double
   Boolean
   Ptr
+  Array(LowType)
   Tuple(Array[LowType])
   ClosureFn(Array[LowType], LowType)
   DirectFn(Array[LowType], LowType)
@@ -485,8 +486,9 @@ pub fn to_string(self: LowType) -> String {
     Double => "Double"
     Boolean => "Boolean"
     Ptr => "Ptr"
+    Array(ty) => "Array[\{ty}]"
     Tuple(tup) => {
-      let tup_str = tup.map(fn(t) { t.to_string() }).join(", ")
+      let tup_str = String::concat(tup.map(fn(t) { "\{t}" }), separator=", ")
       "(" + tup_str + ")"
     }
     ClosureFn(args, ret) => {

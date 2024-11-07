@@ -803,3 +803,252 @@ pub fn knf_conversion(knf: Knf) -> @knf.Knf {
   }
   to_syntax_knf(knf)
 }
+
+/// ------------------------------------------------------------
+/// MibitX.ClosureIR to Syntax.Closure
+/// ------------------------------------------------------------
+fn lowtype_conversion(low_ty: LowType) -> @closure.LowType {
+  match low_ty {
+    Unit => @closure.LowType::Unit
+    Int => @closure.LowType::Int
+    Double => @closure.LowType::Double
+    Boolean => @closure.LowType::Bool
+    Ptr => @closure.LowType::Ptr
+    Tuple(tys) => {
+      let tys = tys.map(fn(ty) { lowtype_conversion(ty) })
+      @closure.LowType::Tuple(tys)
+    }
+    Array(ty) => {
+      @closure.LowType::Array(lowtype_conversion(ty))
+    }
+    ClosureFn(params, ret) => {
+      let params = params.map(fn(ty) { lowtype_conversion(ty) })
+      let ret = lowtype_conversion(ret)
+      @closure.LowType::ClosureFn(params, ret)
+    }
+    DirectFn(params, ret) => {
+      let params = params.map(fn(ty) { lowtype_conversion(ty) })
+      let ret = lowtype_conversion(ret)
+      @closure.LowType::DirectFn(params, ret)
+    }
+    _ => {
+      println("Unsupported lowtype conversion")
+      panic()
+    }
+  }
+}
+
+fn to_syntax_closure(self: ClosureDef) -> @closure.Closure {
+  let name = self.fname.to_string()
+  let actual_free_vars = self.free_vars.map(fn (pair) {
+    let (name, ty) = pair
+    name.to_syntax_name()
+  })
+  @closure.Closure::{ name, actual_free_vars }
+}
+
+fn to_syntax_closure(
+  self: ClosureIR,
+  type_recorder: Map[@types.Name, @closure.LowType]
+) -> @closure.Expr {
+  match self {
+    Unit => Unit
+    Int(i) => Int(i)
+    Double(d) => Double(d)
+    Neg(name) => Neg(to_syntax_name(name))
+    Var(name) => Var(to_syntax_name(name))
+    Add(lhs, rhs) => {
+      let lhs = to_syntax_name(lhs)
+      let rhs = to_syntax_name(rhs)
+      let ty = type_recorder.get(lhs).unwrap()
+      match ty {
+        Int => Add(lhs, rhs)
+        Double => FAdd(lhs, rhs)
+        _ => {
+          println("Unsupported type \{ty} for Add")
+          panic()
+        }
+      }
+    }
+    Sub(lhs, rhs) => {
+      let lhs = to_syntax_name(lhs)
+      let rhs = to_syntax_name(rhs)
+      let ty = type_recorder.get(lhs).unwrap()
+      match ty {
+        Int => Sub(lhs, rhs)
+        Double => FSub(lhs, rhs)
+        _ => {
+          println("Unsupported type \{ty} for Sub")
+          panic()
+        }
+      }
+    }
+    Mul(lhs, rhs) => {
+      let lhs = to_syntax_name(lhs)
+      let rhs = to_syntax_name(rhs)
+      let ty = type_recorder.get(lhs).unwrap()
+      match ty {
+        Int => Mul(lhs, rhs)
+        Double => FMul(lhs, rhs)
+        _ => {
+          println("Unsupported type \{ty} for Mul")
+          panic()
+        }
+      }
+    }
+    Div(lhs, rhs) => {
+      let lhs = to_syntax_name(lhs)
+      let rhs = to_syntax_name(rhs)
+      let ty = type_recorder.get(lhs).unwrap()
+      match ty {
+        Int => Div(lhs, rhs)
+        Double => FDiv(lhs, rhs)
+        _ => {
+          println("Unsupported type \{ty} for Div")
+          panic()
+        }
+      }
+    }
+    Beq(lhs, rhs, then, elec) => {
+      let lhs = to_syntax_name(lhs)
+      let rhs = to_syntax_name(rhs)
+      let then = then.to_syntax_closure(type_recorder)
+      let elec = elec.to_syntax_closure(type_recorder)
+      IfEq(lhs, rhs, then, elec)
+    }
+    Bne(lhs, rhs, then, elec) => {
+      let lhs = to_syntax_name(lhs)
+      let rhs = to_syntax_name(rhs)
+      let then = then.to_syntax_closure(type_recorder)
+      let elec = elec.to_syntax_closure(type_recorder)
+      IfEq(lhs, rhs, elec, then)
+    }
+    Ble(lhs, rhs, then, elec) => {
+      let lhs = to_syntax_name(lhs)
+      let rhs = to_syntax_name(rhs)
+      let then = then.to_syntax_closure(type_recorder)
+      let elec = elec.to_syntax_closure(type_recorder)
+      IfLe(lhs, rhs, then, elec)
+    }
+    Bge(lhs, rhs, then, elec) => {
+      let lhs = to_syntax_name(lhs)
+      let rhs = to_syntax_name(rhs)
+      let then = then.to_syntax_closure(type_recorder)
+      let elec = elec.to_syntax_closure(type_recorder)
+      IfLe(rhs, lhs, then, elec)
+    }
+    Bgt(lhs, rhs, then, elec) => {
+      let lhs = to_syntax_name(lhs)
+      let rhs = to_syntax_name(rhs)
+      let then = then.to_syntax_closure(type_recorder)
+      let elec = elec.to_syntax_closure(type_recorder)
+      IfLe(lhs, rhs, elec, then)
+    }
+    Blt(lhs, rhs, then, elec) => {
+      let lhs = to_syntax_name(lhs)
+      let rhs = to_syntax_name(rhs)
+      let then = then.to_syntax_closure(type_recorder)
+      let elec = elec.to_syntax_closure(type_recorder)
+      IfLe(rhs, lhs, elec, then)
+    }
+    Let((name, ty), body, next) => {
+      let name = to_syntax_name(name)
+      let ty = lowtype_conversion(ty)
+      type_recorder.set(name, ty)
+      let body = body.to_syntax_closure(type_recorder)
+      let next = next.to_syntax_closure(type_recorder)
+      Let((name, ty), body, next)
+    }
+    LetTuple(items, name, body) => {
+      let items = items.map(fn(pair) {
+        let (name, ty) = pair
+        let name = to_syntax_name(name)
+        let ty = lowtype_conversion(ty)
+        type_recorder.set(name, ty)
+        (name, ty)
+      })
+      let name = to_syntax_name(name)
+      let body = body.to_syntax_closure(type_recorder)
+      LetTuple(items, name, body)
+    }
+    CallClosure(name, args) => {
+      let name = to_syntax_name(name)
+      let args = args.map(fn(arg) { to_syntax_name(arg) })
+      CallClosure(name, args)
+    }
+    CallDirect(name, args) => {
+      let label = name.to_string()
+      let args = args.map(fn(arg) { to_syntax_name(arg) })
+      CallDirect(label, args)
+    }
+    MakeTuple(names) => {
+      let names = names.map(fn(name) { to_syntax_name(name) })
+      MakeTuple(names)
+    }
+    ArrayGet(name, idx) => {
+      let name = to_syntax_name(name)
+      let idx = to_syntax_name(idx)
+      ArrayGet(name, idx)
+    }
+    ArrayPut(name, idx, value) => {
+      let name = to_syntax_name(name)
+      let idx = to_syntax_name(idx)
+      let value = to_syntax_name(value)
+      ArrayPut(name, idx, value)
+    }
+    MakeClosure((name, ty), closuredef, next) => {
+      let name = to_syntax_name(name)
+      let ty = lowtype_conversion(ty)
+      let closure = closuredef.to_syntax_closure()
+      let next = next.to_syntax_closure(type_recorder)
+      MakeClosure((name, ty), closure, next)
+    }
+    _ => {
+      println("Unsupported closure conversion \{self.stringify(0)}")
+      panic()
+    }
+  }
+}
+
+pub fn closure_func_def_conversion(
+  self: ClosureIRFuncDef
+) -> @closure.FuncDef {
+  let old_name = self.fname.to_syntax_name()
+  let name = old_name.to_string()
+  let is_closure = match self.free_vars.length() {
+    0 => false
+    _ => true
+  }
+  let type_recorder : Map[@types.Name, @closure.LowType] = Map::new()
+  let ty = lowtype_conversion(self.func_type)
+  let args = self.params.map(fn(pair) {
+    let (name, ty) = pair
+    let name = name.to_syntax_name()
+    let ty = lowtype_conversion(ty)
+    type_recorder.set(name, ty)
+    (name, ty)
+  })
+  let formal_free_vars = self.free_vars.map(fn(pair) {
+    let (name, ty) = pair
+    let name = name.to_syntax_name()
+    let ty = lowtype_conversion(ty)
+    type_recorder.set(name, ty)
+    (name, ty)
+  })
+  let body = self.body.to_syntax_closure(type_recorder)
+  @closure.FuncDef::{
+    name, old_name,
+    is_closure, ty,
+    args, formal_free_vars,
+    body
+  }
+}
+
+pub fn closure_program_conversion(self: ClosureProgram) -> @closure.Program {
+  let fundefs = self.func_defs.map(fn(func_def) {
+    closure_func_def_conversion(func_def)
+  })
+  let type_recorder : Map[@types.Name, @closure.LowType] = Map::new()
+  let body =self.body.to_syntax_closure(type_recorder)
+  @closure.Program::{ fundefs, body }
+}

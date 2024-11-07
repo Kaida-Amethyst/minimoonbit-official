@@ -104,7 +104,6 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
         None => ()
       }
       let parsed = @mibt.union_syntax(syntaxs)
-      println(parsed)
       self.ast = Some(parsed)
     }
     Typecheck => {
@@ -121,15 +120,15 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
         None => ()
       }
       let typechecked = @mibt.union_syntax(syntaxs)
-      println("")
-      println(typechecked)
+      // println("==== typechecked =====")
+      // println(typechecked)
       self.typechecked = Some(typechecked)
     }
     Knf => {
       let knf_context = @mibt.KnfContext::new(self.context)
       let mibt_knf = knf_context.run?().unwrap()
       let knf = @mibt.knf_conversion(mibt_knf)
-      println("")
+      println("==== knf====:")
       println(knf)
       self.knf = Some(knf)
     }
@@ -138,10 +137,11 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
       self.opt_knf = Some(knf)
     }
     Closure => {
-      let closure_ir = @closure.knf_program_to_closure(
-        self.opt_knf.unwrap(),
-        Map::from_iter(externals().iter()),
-      )
+      let closure_context = @mibt.ClosureContext::new(self.context)
+      let closure_prog = closure_context.run?().unwrap()
+      let closure_ir = @mibt.closure_program_conversion(closure_prog)
+      println("=========closure ==========")
+      println(closure_ir)
       self.closure_ir = Some(closure_ir)
     }
     Asm => {
@@ -188,6 +188,8 @@ fn main {
   let json = Ref::new(false)
   let start_stage = Ref::new(Stages::Parse)
   let end_stage = Ref::new(Stages::Finished)
+  let stop_after_parse = Ref::new(false)
+  let stop_after_typecheck = Ref::new(false)
   let knf_interpreter = Ref::new(false)
   let closure_interpreter = Ref::new(false)
   let out_file = Ref::new("-")
@@ -228,6 +230,7 @@ fn main {
         @ArgParser.String(
           fn(s) {
             file = Some(s);
+            stop_after_parse.val = true
           },
         ),
         "Stop After Parse",
@@ -237,8 +240,8 @@ fn main {
         "",
         @ArgParser.String(
           fn(s) {
-            println("stop after type check");
-            panic()
+            file = Some(s);
+            stop_after_typecheck.val = true
           },
         ),
         "Stop After Type Check",
@@ -310,6 +313,12 @@ fn main {
   )
 
   // Configure pipeline
+  if stop_after_parse.val {
+    end_stage.val = Stages::Parse
+  }
+  if stop_after_typecheck.val {
+    end_stage.val = Stages::Typecheck
+  }
   if knf_interpreter.val {
     end_stage.val = Stages::Knf
   }

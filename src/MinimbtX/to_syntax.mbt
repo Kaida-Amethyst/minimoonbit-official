@@ -134,13 +134,13 @@ pub fn to_syntax(self : BlockExpr) -> @types.Syntax {
       syntax = @types.Syntax::LetTuple(items, syn, state_syntax)
       continue syntax, state_exprs[1:]
     }
-    @types.Syntax::Put(syn1, syn2, _), state_exprs => {
+    @types.Syntax::Put(_, _, _), state_exprs => {
       let state_syntax = state_exprs[0].to_syntax()
-      syntax = @types.Syntax::Put(syn1, syn2, state_syntax)
+      syntax = @types.Syntax::Let(("_", @types.Type::Unit), syntax, state_syntax)
       continue syntax, state_exprs[1:]
     }
     _, _ => {
-      println("Unimplemented block expr to syntax")
+      println("Unimplemented block expr to syntax \{syntax}")
       panic()
     }
   }
@@ -295,6 +295,7 @@ pub fn let_expr_to_syntax_without_type(self : LetExpr) -> @types.Syntax {
 
 pub fn ident_type_to_syntax_type(id : String) -> @types.Type {
   match id {
+    "Unit" => @types.Type::Unit
     "Int" => @types.Type::Int
     "Double" => @types.Type::Double
     "Bool" => @types.Type::Bool
@@ -313,11 +314,19 @@ pub fn to_syntax_type(self : TypeExpr) -> @types.Type {
       for type_expr in tuple_types.types {
         types.push(type_expr.to_syntax_type())
       }
-      return @types.Type::Tuple(types)
+      @types.Type::Tuple(types)
     }
-    _ => {
-      println("Unimplemented type expr to syntax type")
-      panic()
+    ApplyType(appty) => {
+      let type_arg = appty.type_args[0].to_syntax_type()
+      @types.Type::Array(type_arg) // no other possibility for now
+    }
+    FuncType(fty) => {
+      let arg_ty = fty.arg_type.to_syntax_type()
+      let ret_ty = fty.ret_type.to_syntax_type()
+      match arg_ty {
+        Tuple(tup) => @types.Type::Fun(tup, ret_ty)
+        _ => @types.Type::Fun([arg_ty], ret_ty)
+      }
     }
   }
 }
@@ -489,7 +498,7 @@ pub fn to_syntax(self : CallExpr) -> @types.Syntax {
       println("Array::make should have two arguments")
       panic()
     }
-    return Array(args_syntax[0], args_syntax[1])
+    return @types.App(apply_expr.to_syntax(), args_syntax)
   }
   let apply_syntax = apply_expr.to_syntax()
   return @types.App(apply_syntax, args_syntax)
@@ -507,15 +516,17 @@ pub fn is_apply_expr_not(expr : ApplyExpr) -> Bool {
 }
 
 pub fn is_apply_expr_array_make(expr : ApplyExpr) -> Bool {
-  match expr {
+  let re = match expr {
     Atomic(atom_expr) =>
       match atom_expr {
-        Method(method_expr) =>
-          method_expr.scope.id == "Array" && method_expr.ident.id == "make"
+        Method(method_expr) => {
+          method_expr.ident.id == "Array::make"
+        }
         _ => false
       }
     _ => false
   }
+  re
 }
 
 /// ------------------------------------------------------------
@@ -529,6 +540,7 @@ pub fn to_syntax(self : AtomExpr) -> @types.Syntax {
     UnaryExpr(unary_expr) => unary_expr.to_syntax()
     Paren(expr) => expr.to_syntax()
     Closure(closure) => closure.to_syntax()
+    Method(m) => @types.Syntax::Var(m.ident.id)
     Unit(_) => @types.Syntax::Unit
     _ => {
       println("Unimplemented atom_expr to syntax\{self.stringify(0)}")
@@ -594,13 +606,18 @@ pub fn to_syntax_type(self: Type) -> @types.Type {
     Double => @types.Type::Double
     Boolean => @types.Type::Bool
     TupleTy(tup) => tup.to_syntax_type()
+    CompTy(comp) => {
+      let subTy = comp.subs[0].to_syntax_type()
+      // no other possibility for now
+      @types.Type::Array(subTy)
+    }
     FuncTy(fty) => {
       let args = fty.param_types.iter().map(fn(arg) { arg.to_syntax_type() }).to_array()
       let ret = fty.ret_type.to_syntax_type()
       @types.Type::Fun(args, ret)
     }
     _ => {
-      println("Unsupported type convert to syntax type")
+      println("Unsupported type convert to syntax type \{self}")
       panic()
     }
   }

@@ -7,6 +7,7 @@ pub struct ClosureContext {
   builtin_funcs : Map[Name, LowType]
   direct_funcs : Map[Name, LowType]
   global_vars  : Map[Name, (LowType, ClosureIR)]
+  mut prog: ClosureProgram?
 }
 
 pub fn ClosureContext::new(context: Context) -> ClosureContext {
@@ -16,6 +17,7 @@ pub fn ClosureContext::new(context: Context) -> ClosureContext {
     builtin_funcs: Map::new(),
     direct_funcs: Map::new(),
     global_vars: Map::new(),
+    prog: None,
   }
 }
 
@@ -81,6 +83,14 @@ pub struct ClosureProgram {
 
 // run after init
 pub fn createProgram(self: ClosureContext) -> ClosureProgram {
+  match self.prog {
+    None => ()
+    Some(p) => {
+      println("Program is already created!")
+      return p
+    }
+  }
+
   let prog = ClosureProgram::{
     context: self,
     func_defs: Array::new(),
@@ -130,6 +140,7 @@ pub fn createProgram(self: ClosureContext) -> ClosureProgram {
     }
   }
   deal_func_def(knf)
+  self.prog = Some(prog)
   prog
 }
 

@@ -28,7 +28,7 @@ fn Stages::next(self : Stages) -> Stages {
     Stages::Typecheck => Stages::Knf
     Stages::Knf => Stages::KnfOpt
     Stages::KnfOpt => Stages::Closure
-    Stages::Closure => @util.die("TODO")
+    Stages::Closure => Stages::Asm
     Stages::Asm => Stages::Finished
     Stages::Finished => Stages::Finished
   }
@@ -128,8 +128,8 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
       let knf_context = @mibt.KnfContext::new(self.context)
       let mibt_knf = knf_context.run?().unwrap()
       let knf = @mibt.knf_conversion(mibt_knf)
-      println("==== knf====:")
-      println(knf)
+      // println("==== knf====:")
+      // println(knf)
       self.knf = Some(knf)
     }
     KnfOpt => {
@@ -138,14 +138,25 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
     }
     Closure => {
       let closure_context = @mibt.ClosureContext::new(self.context)
+      self.context.closure_context = Some(closure_context)
       let closure_prog = closure_context.run?().unwrap()
       let closure_ir = @mibt.closure_program_conversion(closure_prog)
-      println("=========closure ==========")
-      println(closure_ir)
+      // println("=========closure ==========")
+      // println(closure_ir)
       self.closure_ir = Some(closure_ir)
     }
     Asm => {
-      let real_asm = @riscv.emit(@util.die("TODO"))
+      match self.context.closure_context {
+        None => @util.die("No closure context")
+        Some(_) => ()
+      }
+      let closure_prog = self.context.closure_context.unwrap().prog.unwrap()
+      let llvm_codegen = @mibt.LLVMCodeGen::create(closure_prog, "")
+      let module = llvm_codegen.run()
+      let emitter = @llvm.RiscVEmitter::new(module, false)
+      emitter.run()
+      let real_asm = emitter.get_code()
+      // let real_asm = @riscv.emit(@util.die("TODO"))
       self.asm = Some(real_asm)
     }
     Finished => ()
@@ -227,23 +238,13 @@ fn main {
       (
         "--stop-after-parse",
         "",
-        @ArgParser.String(
-          fn(s) {
-            file = Some(s);
-            stop_after_parse.val = true
-          },
-        ),
+        @ArgParser.Set(stop_after_parse),
         "Stop After Parse",
       ),
       (
         "--stop-after-typecheck",
         "",
-        @ArgParser.String(
-          fn(s) {
-            file = Some(s);
-            stop_after_typecheck.val = true
-          },
-        ),
+        @ArgParser.Set(stop_after_typecheck),
         "Stop After Type Check",
       ),
       (

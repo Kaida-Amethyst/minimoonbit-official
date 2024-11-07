@@ -9,6 +9,10 @@
       "alias": "mibt"
     },
     {
+      "path": "moonbitlang/minimbt/NaiveLLVM",
+      "alias": "llvm"
+    },
+    {
       "path": "moonbitlang/minimbt",
       "alias": "types"
     },

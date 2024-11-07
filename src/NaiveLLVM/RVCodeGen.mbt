@@ -160,7 +160,6 @@ fn push_comment_if_debug(self: RiscVEmitter, comment: String) -> Unit {
 
 pub fn run(self: RiscVEmitter) -> Unit {
   self.transformModuleToRiscV()
-  // self.transformFunctionToRiscV(self.module.functions[0])
 }
 
 pub fn get_code(self: RiscVEmitter) -> Array[@riscv.AssemblyFunction] {
@@ -249,12 +248,27 @@ fn collect_free_freg(self: RiscVEmitter, func: Function) -> Array[@riscv.FReg] {
 fn transformModuleToRiscV(
   self: RiscVEmitter
 ) -> Unit {
-  for func in self.module.functions {
-    match func.body.length() {
+  for f in self.module.functions {
+    match f.body.length() {
       0 => continue
       _ => ()
     }
-    self.transformFunctionToRiscV(func)
+    let phi_elim_pass = PhiEliminationPass::new()
+    phi_elim_pass.run(f)
+    let peephole_pass = PeepholePass::new()
+    peephole_pass.run(f)
+    let promote_imm_pass = PromoteImmPass::new()
+    promote_imm_pass.run(f)
+    let promote_reg2mem_pass = PromoteReg2MemPass::new()
+    promote_reg2mem_pass.run(f)
+    let virtual_reg_alloc_pass = VirtualRegisterAllocPass::new()
+    virtual_reg_alloc_pass.run(f)
+    let riscv_reg_alloc_pass = RiscVRegisterAllocPass::new()
+    riscv_reg_alloc_pass.run(f)
+    let riscv_mem_alloc_pass = RiscVMemoryAllocPass::new()
+    riscv_mem_alloc_pass.run(f)
+
+    self.transformFunctionToRiscV(f)
   }
 }
 

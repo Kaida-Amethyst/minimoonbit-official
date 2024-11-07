@@ -270,6 +270,9 @@ pub fn simple_syntax_type_from_atom_pat(
       }
       return types
     }
+    WildCard(_) => {
+      Array::new()
+    }
     _ => {
       println("Unimplemented atom pat to syntax type")
       panic()
@@ -341,6 +344,9 @@ pub fn combine_atom_pat_type_expr(
         }
       }
       return types
+    }
+    (WildCard(_), _) => {
+      Array::new()
     }
     _ => {
       println("Unimplemented combine atom pat type expr")
@@ -523,8 +529,9 @@ pub fn to_syntax(self : AtomExpr) -> @types.Syntax {
     UnaryExpr(unary_expr) => unary_expr.to_syntax()
     Paren(expr) => expr.to_syntax()
     Closure(closure) => closure.to_syntax()
+    Unit(_) => @types.Syntax::Unit
     _ => {
-      println("Unimplemented atom_expr to syntax")
+      println("Unimplemented atom_expr to syntax\{self.stringify(0)}")
       panic()
     }
   }
@@ -766,7 +773,7 @@ pub fn knf_conversion(knf: Knf) -> @knf.Knf {
         Apply(name, args)
       }
       ExternApply(name, args) => {
-        let name = name.to_string()
+        let name = "minimbt_" + name.to_string()
         let args = args.map(fn(arg) { to_syntax_name(arg) })
         ExternalFunctionApplication(name, args)
       }
@@ -801,7 +808,25 @@ pub fn knf_conversion(knf: Knf) -> @knf.Knf {
       }
     }
   }
-  to_syntax_knf(knf)
+  fn add_apply_main(knf: @knf.Knf) -> @knf.Knf {
+    let name_main = @types.Name::{ name: Some("main"), slot: 0 }
+    let app_main = @knf.Knf::Apply(name_main, [])
+    match knf {
+      Let(n, m, @knf.Knf::Unit) => Let(n, m, app_main)
+      LetRec(fundef, @knf.Knf::Unit) => LetRec(fundef, app_main)
+      LetTuple(items, n, @knf.Knf::Unit) => LetTuple(items, n, app_main)
+      Let(n, m, next) => Let(n, m, add_apply_main(next))
+      LetRec(fundef, next) => LetRec(fundef, add_apply_main(next))
+      LetTuple(items, n, next) => LetTuple(items, n, add_apply_main(next))
+      _ => {
+        println("Meet problem during add apply main")
+        panic()
+      }
+    }
+
+  }
+  let knf = to_syntax_knf(knf)
+  add_apply_main(knf)
 }
 
 /// ------------------------------------------------------------

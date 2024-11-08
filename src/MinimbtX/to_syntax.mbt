@@ -1054,6 +1054,7 @@ fn to_syntax_closure(
           Some(_) => "minimbt_" + "create_ptr_array"
           None => {
             println("closure 2 closure Call array make error")
+            println("didn't find the type of \{args[1].to_string()}")
             panic()
           }
         }
@@ -1082,6 +1083,7 @@ fn to_syntax_closure(
       let name = to_syntax_name(name)
       let ty = lowtype_conversion(ty)
       let closure = closuredef.to_syntax_closure()
+      type_recorder.set(name, ty)
       let next = next.to_syntax_closure(type_recorder)
       MakeClosure((name, ty), closure, next)
     }
@@ -1135,6 +1137,7 @@ pub fn closure_func_def_conversion(
   }
   let type_recorder : Map[@types.Name, @closure.LowType] = Map::new()
   let ty = lowtype_conversion(self.func_type)
+  type_recorder.set(old_name, ty)
   let args = self.params.map(fn(pair) {
     let (name, ty) = pair
     let name = name.to_syntax_name()

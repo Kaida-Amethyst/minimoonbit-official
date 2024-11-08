@@ -499,7 +499,7 @@ pub fn to_string(self: LowType) -> String {
     Ptr => "Ptr"
     Array(ty) => "Array[\{ty}]"
     Tuple(tup) => {
-      let tup_str = String::concat(tup.map(fn(t) { "\{t}" }), separator=", ")
+      let tup_str = tup.map(fn(t) { "\{t}" }).join(", ")
       "(" + tup_str + ")"
     }
     ClosureFn(args, ret) => {

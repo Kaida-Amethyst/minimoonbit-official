@@ -1798,7 +1798,7 @@ fn parse_binary_expr(self : Parser, leftmost : Expr) -> Expr!Error {
       expr_stack.push(Expr::Apply(self.parse_apply_expr!()))
       continue
     } else {
-      while not(oper_stack.is_empty()) {
+      while not(oper_stack.is_empty()) && oper_stack.last().unwrap().prec >= op_right.prec {
         let right_expr = expr_stack.pop().unwrap()
         let left_expr = expr_stack.pop().unwrap()
         let op = oper_stack.pop().unwrap()

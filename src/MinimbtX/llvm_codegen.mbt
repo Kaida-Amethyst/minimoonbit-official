@@ -42,7 +42,7 @@ pub fn create_main_builder(
 pub fn collect_extern_vars(self: LLVMCodeGen) -> Unit {
   for ename, etype in self.prog.context.extern_funcs {
     let llvm_type = etype.to_llvm_type()
-    self.extern_vars.set(ename.to_string(), llvm_type)
+    self.extern_vars.set("minimbt_"+ename.to_string(), llvm_type)
   }
   // library functions
   // 1. malloc: void* malloc(int32_t size)
@@ -52,22 +52,22 @@ pub fn collect_extern_vars(self: LLVMCodeGen) -> Unit {
   let malloc_ty = @llvm.Type::FunctionTy(
     [@llvm.Type::Int32Ty], @llvm.Type::getPointerTy()
   )
-  self.extern_vars.set("malloc", malloc_ty)
+  self.extern_vars.set("minimbt_malloc", malloc_ty)
   let create_array_ty = @llvm.Type::FunctionTy(
     [@llvm.Type::Int32Ty, @llvm.Type::Int32Ty],
     @llvm.Type::getPointerTy(ty=@llvm.Type::Int32Ty)
   )
-  self.extern_vars.set("create_array", create_array_ty)
+  self.extern_vars.set("minimbt_create_array", create_array_ty)
   let create_float_array_ty = @llvm.Type::FunctionTy(
     [@llvm.Type::DoubleTy, @llvm.Type::DoubleTy],
     @llvm.Type::getPointerTy(ty=@llvm.Type::DoubleTy)
   )
-  self.extern_vars.set("create_float_array", create_float_array_ty)
+  self.extern_vars.set("minimbt_create_float_array", create_float_array_ty)
   let create_ptr_array_ty = @llvm.Type::FunctionTy(
     [@llvm.Type::Int32Ty, @llvm.Type::getPointerTy()],
     @llvm.Type::getPointerTy(ty=@llvm.Type::getPointerTy())
   )
-  self.extern_vars.set("create_ptr_array", create_ptr_array_ty)
+  self.extern_vars.set("minimbt_create_ptr_array", create_ptr_array_ty)
 }
 
 pub fn collect_builtin_funcs(self: LLVMCodeGen) -> Unit {
@@ -100,7 +100,10 @@ pub fn find_function(self: LLVMCodeGen, name: String) -> @llvm.Function? {
     Some(func) => Some(func)
     None => match self.extern_vars.get(name) {
       Some(ty) => Some(@llvm.Function::create(ty, name, self.module))
-      None => None
+      None => match self.extern_vars.get("minimbt_"+name) {
+        Some(ty) => Some(@llvm.Function::create(ty, "minimbt_"+name, self.module))
+        None => None
+      }
     }
   }
 }
@@ -334,7 +337,7 @@ fn to_llvm_type(self: LowType) -> @llvm.Type {
 } 
 
 pub fn malloc(self: LLVMBuilder, size: Int) -> @llvm.Value {
-  let malloc_func = self.manager.find_function("malloc").unwrap()
+  let malloc_func = self.manager.find_function("minimbt_malloc").unwrap()
   let malloc_ty = malloc_func.get_type()
   let arg_list = [@llvm.Constant::getInt32(size).as_value()]
   let ptr = self.builder.createCall(malloc_ty, malloc_func, arg_list)
@@ -342,7 +345,7 @@ pub fn malloc(self: LLVMBuilder, size: Int) -> @llvm.Value {
 }
 
 pub fn malloc_by_value(self: LLVMBuilder, value: @llvm.Value) -> @llvm.Value {
-  let malloc_func = self.manager.find_function("malloc").unwrap()
+  let malloc_func = self.manager.find_function("minimbt_malloc").unwrap()
   let malloc_ty = malloc_func.get_type()
   let ptr = self.builder.createCall(malloc_ty, malloc_func, [value])
   ptr
@@ -368,19 +371,19 @@ pub fn call_builtin_func(
   let ele_ty = arg_tys[1]
   let ptr = match ele_ty {
     @llvm.Type::Int32Ty => {
-      let libfunc = self.manager.find_function("create_array").unwrap()
+      let libfunc = self.manager.find_function("minimbt_create_array").unwrap()
       let libfunc_ty = libfunc.get_type()
       let ptr = self.builder.createCall(libfunc_ty, libfunc, arg_list)
       ptr
     }
     @llvm.Type::DoubleTy => {
-      let libfunc = self.manager.find_function("create_float_array").unwrap()
+      let libfunc = self.manager.find_function("minimbt_create_float_array").unwrap()
       let libfunc_ty = libfunc.get_type()
       let ptr = self.builder.createCall(libfunc_ty, libfunc, arg_list)
       ptr
     }
     @llvm.Type::PointerTy(_) => {
-      let libfunc = self.manager.find_function("create_ptr_array").unwrap()
+      let libfunc = self.manager.find_function("minimbt_create_ptr_array").unwrap()
       let libfunc_ty = libfunc.get_type()
       let ptr = self.builder.createCall(libfunc_ty, libfunc, arg_list)
       ptr

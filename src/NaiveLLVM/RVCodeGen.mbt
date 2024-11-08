@@ -665,7 +665,11 @@ fn transformLoadToRiscV(
               panic()
             }
           }
-          @riscv.RvAsm::Ld(sreg, ptr)
+          match inst.as_value().get_type() {
+            Type::Int32Ty => @riscv.RvAsm::Lw(sreg, ptr)
+            _ => @riscv.RvAsm::Ld(sreg, ptr)
+          }
+          // @riscv.RvAsm::Ld(sreg, ptr)
         }
       }
     }

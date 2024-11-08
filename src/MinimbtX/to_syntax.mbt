@@ -909,6 +909,12 @@ fn to_syntax_closure(
   self: ClosureIR,
   type_recorder: Map[@types.Name, @closure.LowType]
 ) -> @closure.Expr {
+  let need_rename_funcs = [
+    "print_int", "print_endline", "truncate",
+    "sin", "cos", "sqrt", "abs_float", "int_of_float",
+    "float_of_int", "read_int", "read_char",
+  ]
+
   match self {
     Unit => Unit
     Int(i) => Int(i)
@@ -1036,6 +1042,11 @@ fn to_syntax_closure(
     }
     CallDirect(name, args) => {
       let label = name.to_string()
+      let label = if need_rename_funcs.contains(label) {
+        "minimbt_" + label
+      } else {
+        label
+      }
       let label = if label.starts_with("__builtin_array_make") {
         match type_recorder.get(args[1].to_syntax_name()) {
           Some(@closure.LowType::Int) => "minimbt_" + "create_array"
@@ -1099,6 +1110,15 @@ pub fn closure_func_def_conversion(
     type_recorder.set(name, ty)
     (name, ty)
   })
+  match args.last() {
+    Some(pair) => {
+      let (name, _) = pair
+      if name.to_string() == "__capture__" {
+        let _ = args.pop()
+      }
+    }
+    None => ()
+  }
   let formal_free_vars = self.free_vars.map(fn(pair) {
     let (name, ty) = pair
     let name = name.to_syntax_name()

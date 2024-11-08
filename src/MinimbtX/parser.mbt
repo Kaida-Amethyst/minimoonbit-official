@@ -1793,7 +1793,7 @@ fn parse_binary_expr(self : Parser, leftmost : Expr) -> Expr!Error {
   while self.current_is_infix_op() {
     let op_right = self.build_infix_op!()
     let op_left = oper_stack.last().unwrap()
-    if op_right.prec > op_left.prec {
+    if op_right.prec >= op_left.prec {
       oper_stack.push(op_right)
       expr_stack.push(Expr::Apply(self.parse_apply_expr!()))
       continue

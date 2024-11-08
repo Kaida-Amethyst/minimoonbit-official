@@ -279,8 +279,13 @@ fn transformFunctionToRiscV(
   self: RiscVEmitter,
   func: Function,
 ) -> Unit {
+  let fname = if func.name == "main" {
+    "minimbt_main"
+  } else {
+    func.name
+  }
   let asm_func : @riscv.AssemblyFunction = {
-    name: func.name,
+    name: fname,
     export: true,
     body: Array::new(),
   }

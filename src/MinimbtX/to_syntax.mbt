@@ -1092,6 +1092,38 @@ fn to_syntax_closure(
   }
 }
 
+fn concat_closure_ir(prev: @closure.Expr, next: @closure.Expr) -> @closure.Expr {
+  match prev {
+    Let((name, ty), body, @closure.Expr::Unit) => {
+      Let((name, ty), body, next)
+    }
+    LetTuple(items, name, @closure.Expr::Unit) => {
+      LetTuple(items, name, next)
+    }
+    Let((name, ty), body, other_next) => {
+      Let((name, ty), body, concat_closure_ir(other_next, next))
+    }
+    LetTuple(items, name, other_next) => {
+      LetTuple(items, name, concat_closure_ir(other_next, next))
+    }
+    @closure.Expr::Unit => next
+    _ => {
+      println("Meet problem during concat closure ir, prev is \{prev}")
+      panic()
+    }
+  }
+}
+
+fn concat_closure_arr(arr: ArrayView[@closure.Expr]) -> @closure.Expr {
+  let len = arr.length()
+  if len == 0 {
+    return @closure.Expr::Unit
+  }
+  let last = arr[len - 1]
+  let rest = arr[0: len - 1]
+  concat_closure_ir(concat_closure_arr(rest), last)
+}
+
 pub fn closure_func_def_conversion(
   self: ClosureIRFuncDef
 ) -> @closure.FuncDef {
@@ -1126,7 +1158,18 @@ pub fn closure_func_def_conversion(
     type_recorder.set(name, ty)
     (name, ty)
   })
+  let whole_body : Array[@closure.Expr] = Array::new()
+  self.prog.global_vars.each(fn (name, pair) {
+    let (ty, sub_ir) = pair
+    let name = to_syntax_name(name)
+    let ty = lowtype_conversion(ty)
+    let sub_ir = sub_ir.to_syntax_closure(type_recorder)
+    type_recorder.set(name, ty)
+    whole_body.push(Let((name, ty), sub_ir, Unit))
+  })
   let body = self.body.to_syntax_closure(type_recorder)
+  whole_body.push(body)
+  let body = concat_closure_arr(whole_body[0:])
   @closure.FuncDef::{
     name, old_name,
     is_closure, ty,

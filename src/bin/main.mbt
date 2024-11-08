@@ -141,8 +141,6 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
       self.context.closure_context = Some(closure_context)
       let closure_prog = closure_context.run?().unwrap()
       let closure_ir = @mibt.closure_program_conversion(closure_prog)
-      // println("=========closure ==========")
-      // println(closure_ir)
       self.closure_ir = Some(closure_ir)
     }
     Asm => {
@@ -156,7 +154,6 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
       let emitter = @llvm.RiscVEmitter::new(module, false)
       emitter.run()
       let real_asm = emitter.get_code()
-      // let real_asm = @riscv.emit(@util.die("TODO"))
       self.asm = Some(real_asm)
     }
     Finished => ()

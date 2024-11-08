@@ -557,7 +557,7 @@ fn transformFAddToRiscV(self: RiscVEmitter, inst: BinaryInst) -> Unit {
       guard let ConstantFP(lval) = l
       guard let ConstantFP(rval) = r
       let imm = lval + rval
-      let imm = imm.reinterpret_as_int64()
+      let imm = imm.reinterpret_as_uint64()
       self.push_code(@riscv.RvAsm::Li(@riscv.Reg::S10, imm.to_string()))
       self.push_code(@riscv.RvAsm::FmvDX(dst_freg, @riscv.Reg::S10))
     }

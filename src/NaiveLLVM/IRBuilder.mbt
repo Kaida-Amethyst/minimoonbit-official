@@ -234,6 +234,7 @@ fn binary_constant_fold(
     BinaryOperator::Div => {
       match (lhs, rhs) {
         (ConstantInt(l), ConstantInt(r)) => ConstantInt(l / r)
+        (ConstantFP(l), ConstantFP(r)) => ConstantFP(l / r)
         _ => {unreachable(); panic()}
       }
     }

@@ -789,7 +789,7 @@ pub fn knf_conversion(knf: Knf) -> @knf.Knf {
         let callee = if fname.starts_with("__builtin_array_make") {
           let ty = type_recorder.get(args[1].to_syntax_name())
           let callee = match ty {
-            Some(@types.Type::Int) => "minimbt_" + "create_int_array"
+            Some(@types.Type::Int) => "minimbt_" + "create_array"
             Some(@types.Type::Double) => "minimbt_" + "create_float_array"
             Some(_) => "minimbt_" + "create_ptr_array"
             None => {
@@ -1038,7 +1038,7 @@ fn to_syntax_closure(
       let label = name.to_string()
       let label = if label.starts_with("__builtin_array_make") {
         match type_recorder.get(args[1].to_syntax_name()) {
-          Some(@closure.LowType::Int) => "minimbt_" + "create_int_array"
+          Some(@closure.LowType::Int) => "minimbt_" + "create_array"
           Some(@closure.LowType::Double) => "minimbt_" + "create_float_array"
           Some(_) => "minimbt_" + "create_ptr_array"
           None => {

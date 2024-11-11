@@ -46,6 +46,7 @@ struct CompileStatus {
   mut opt_knf : @knf.Knf?
   mut closure_ir : @closure.Program?
   mut asm : Array[@riscv.AssemblyFunction]?
+  mut js : String?
 }
 
 fn CompileStatus::initialize(
@@ -65,6 +66,7 @@ fn CompileStatus::initialize(
     opt_knf: None,
     closure_ir: None,
     asm: None,
+    js: None,
   }
   match start_stage {
     Parse => {
@@ -120,6 +122,7 @@ fn CompileStatus::step(self : CompileStatus) -> Bool {
         None => ()
       }
       let typechecked = @mibt.union_syntax(syntaxs)
+      self.js = Some(self.context.program.to_js())
       // println("==== typechecked =====")
       // println(typechecked)
       self.typechecked = Some(typechecked)
@@ -194,6 +197,7 @@ fn main {
 
   // Testing directives
   let json = Ref::new(false)
+  let js = Ref::new(false)
   let start_stage = Ref::new(Stages::Parse)
   let end_stage = Ref::new(Stages::Finished)
   let stop_after_parse = Ref::new(false)
@@ -263,6 +267,7 @@ fn main {
         "Output file",
       ),
       ("--json", "", @ArgParser.Set(json), "Print results as JSON"),
+      ("--js", "", @ArgParser.Set(js), "Print javascript backend"),
 
       // Regular directives
       (
@@ -311,6 +316,9 @@ fn main {
   )
 
   // Configure pipeline
+  if js.val {
+    end_stage.val = Stages::Typecheck
+  }
   if stop_after_parse.val {
     end_stage.val = Stages::Parse
   }
@@ -383,6 +391,12 @@ fn main {
         println(e)
         @util.die("Closure interpreter error")
       }
+    }
+  } else if js.val {
+    if out_file.val == "-" {
+      println(status.js.unwrap())
+    } else {
+      @fs.write_to_string(out_file.val, status.js.unwrap())
     }
   } else {
     let out_string = status.output(json.val)

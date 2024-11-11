@@ -234,6 +234,13 @@ fn next_is_whitespace(self : Lexer) -> Bool {
   }
 }
 
+fn next_is_comma(self : Lexer) -> Bool {
+  match self.get_next() {
+    Some(c) => c == ','
+    None => false
+  }
+}
+
 fn next_is_not(self : Lexer, c : Char) -> Bool {
   match self.get_next() {
     Some(a) => c != a
@@ -638,8 +645,10 @@ let keywords = [
 ]
 
 fn create_word(self : Lexer) -> Token {
-  if self.current_is('_') && self.next_is_whitespace() {
-    self.forward()
+  if self.current_is('_') &&
+     self.next_is_not_alpha() &&
+     self.next_is_not_digit() &&
+     self.next_is_not('_') {
     return self.create_wildcard()
   }
   let start_loc = self.get_current_loc()
